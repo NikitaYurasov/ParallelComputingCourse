@@ -3,9 +3,8 @@
 #include <vector>
 #include <cmath>
 #include <immintrin.h>
-#include <x86intrin.h>
 #include <xmmintrin.h>
-#include <avx2intrin.h>
+#include "omp.h"
 #include "timing.hpp"
 
 
@@ -18,7 +17,7 @@ void vectorized_sum_sse(size_t n) {
         __m128d x = _mm_loadu_pd(&a[i]);
         __m128d y = _mm_loadu_pd(&b[i]);
         x = _mm_add_pd(x, y);
-        _mm_store_si128((__m128i *) &a[i], x);
+        _mm_store_pd(&a[i], x);
     }
 }
 
@@ -70,7 +69,7 @@ double numeric_integration_simd(int n, double a_bound, double b_bound, arithmeti
 
 
 double exp_x2(double x) {
-    // \int_0^\infty e^{x^2} = 1/2\sqrt{\pi}\erfi(1) \approx 1.46265
+    // \int_0^1 e^{x^2} = \frac{\sqrt{\pi}}{2}erfi(1) \approx 1.46265
     return exp(pow(x, 2));
 }
 
@@ -87,45 +86,63 @@ int main() {
     std::fill(std::begin(b), std::begin(b) + MAX_SIZE, (double) -1.123e3);
 
     std::cout << "\n++++++++++++++++++++++++++++++++++++++++\n";
-    printf("%-10s Cycles/Element for %s\n", "Size", "Loop Sum");
+    printf("%-10s Cycles/Element for %s IPC    T\n", "Size", "Loop Sum");
     for (size_t i = 16; i <= MAX_SIZE; i *= 2) {
         uint64_t t = measure_function_intrinsic(loop_vectorization_sum, i);
-        printf("%-10d %7.2f\n", i, (double) t / (double) i);
+        double cpe = (double) t / (double) i;
+        double ipc = 1 / cpe;
+        double T = cpe * i;
+        printf("%-10d %7.2f \t\t\t\t\t%7.2f %7.2f\n", (int) i, cpe, ipc, T);
     }
     std::cout << "\n++++++++++++++++++++++++++++++++++++++++\n";
-    printf("%-10s Cycles/Element for %s\n", "Size", "Vec Sum SSE2");
+    printf("%-10s Cycles/Element for %s IPC    T\n", "Size", "Vec Sum SSE2");
     for (size_t i = 16; i <= MAX_SIZE; i *= 2) {
         uint64_t t = measure_function_intrinsic(vectorized_sum_sse, i);
-        printf("%-10d %7.2f\n", i, (double) t / (double) i);
+        double cpe = (double) t / (double) i;
+        double ipc = 1 / cpe;
+        double T = cpe * i;
+        printf("%-10d %7.2f \t\t\t\t\t%7.2f %7.2f\n", (int) i, cpe, ipc, T);
     }
 
     std::cout << "\n++++++++++++++++++++++++++++++++++++++++\n";
-    printf("%-10s Cycles/Element for %s\n", "Size", "Vec Sum AVX2");
+    printf("%-10s Cycles/Element for %s IPC    T\n", "Size", "Vec Sum AVX2");
     for (size_t i = 16; i <= MAX_SIZE; i *= 2) {
         uint64_t t = measure_function_intrinsic(vectorized_sum_avx2, i);
-        printf("%-10d %7.2f\n", i, (double) t / (double) i);
+        double cpe = (double) t / (double) i;
+        double ipc = 1 / cpe;
+        double T = cpe * i;
+        printf("%-10d %7.2f \t\t\t\t\t%7.2f %7.2f\n", (int) i, cpe, ipc, T);
     }
 
     int max_iter = 1000000;
     std::cout << "\n++++++++++++++++++++++++++++++++++++++++\n";
-    printf("%-10s Cycles/Element for %s\n", "Size", "One Thread Integration");
+    printf("%-10s Cycles/Element for %s IPC    T\n", "Size", "One Thread Integration");
     for (size_t i = 10; i <= max_iter; i *= 10) {
         uint64_t t = measure_function_integrate(numeric_integration, i, 0, 1, exp_x2);
-        printf("%-10d %7.2f\n", i, (double) t / (double) i);
+        double cpe = (double) t / (double) i;
+        double ipc = 1 / cpe;
+        double T = cpe * i;
+        printf("%-10d %7.2f \t\t\t\t\t%7.2f %7.2f\n", (int) i, cpe, ipc, T);
     }
 
     std::cout << "\n++++++++++++++++++++++++++++++++++++++++\n";
-    printf("%-10s Cycles/Element for %s\n", "Size", "Parallel Integration");
+    printf("%-10s Cycles/Element for %s IPC    T\n", "Size", "Parallel Integration");
     for (int i = 10; i <= max_iter; i *= 10) {
         uint64_t t = measure_function_integrate(numeric_integration_omp, i, 0, 1, exp_x2);
-        printf("%-10d %7.2f\n", i, (double) t / (double) i);
+        double cpe = (double) t / (double) i;
+        double ipc = 1 / cpe;
+        double T = cpe * i;
+        printf("%-10d %7.2f \t\t\t\t\t%7.2f %7.2f\n", (int) i, cpe, ipc, T);
     }
 
     std::cout << "\n++++++++++++++++++++++++++++++++++++++++\n";
-    printf("%-10s Cycles/Element for %s\n", "Size", "SIMD Integration");
+    printf("%-10s Cycles/Element for %s IPC    T\n", "Size", "SIMD Integration");
     for (int i = 10; i <= max_iter; i *= 10) {
         uint64_t t = measure_function_integrate(numeric_integration_simd, i, 0, 1, exp_x2);
-        printf("%-10d %7.2f\n", i, (double) t / (double) i);
+        double cpe = (double) t / (double) i;
+        double ipc = 1 / cpe;
+        double T = cpe * i;
+        printf("%-10d %7.2f \t\t\t\t\t%7.2f %7.2f\n", (int) i, cpe, ipc, T);
     }
     return 0;
 }
